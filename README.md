@@ -32,7 +32,7 @@ A arquitetura do projeto foi dividida de forma clara entre Backend e Frontend, u
 
 - `frontend.py`: Aplicação Streamlit que consome a API e renderiza a interface do usuário.
 
-- `popular_banco.py`: Script utilitário para popular o banco com dados fictícios ou limpá-lo completamente.
+- `manipular_banco.py`: Script utilitário para popular o banco com dados fictícios ou limpá-lo completamente.
 
 - `test_backend.py`: Suíte de testes unitários e de integração utilizando Pytest e banco de dados em memória.
 
@@ -132,16 +132,16 @@ O projeto conta com uma suíte de testes que cria um banco de dados temporário 
 
 # 🛠️ Script Utilitário (Popular / Limpar Banco)
 
-Para testar os gráficos ou resetar o aplicativo, você pode usar o script auxiliar `popular_banco.py`.
+Para testar os gráficos ou resetar o aplicativo, você pode usar o script auxiliar `manipular_banco.py`.
 
 Para inserir dados fictícios de exercícios no passado:
 
-`python popular_banco.py popular`
+`python manipular_banco.py popular`
 
 
 Para apagar absolutamente todos os dados e começar do zero:
 
-`python popular_banco.py limpar`
+`python manipular_banco.py limpar`
 
 
 Desenvolvido com dedicação e muito código Python! 🐍
