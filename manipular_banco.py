@@ -1,46 +1,44 @@
-import sqlite3
 import sys
+from datetime import datetime, timezone
+from backend import SessionLocal, DBWorkout, DBExercise, DBSet
 
 def limpar_banco():
-    conn = sqlite3.connect("treinos.db")
-    cursor = conn.cursor()
-
+    db = SessionLocal()
     try:
-        # Apagamos primeiro as tabelas filhas e depois as tabelas pais 
-        # para não haver conflito de integridade referencial
-        cursor.execute("DELETE FROM sets")
-        cursor.execute("DELETE FROM exercises")
-        cursor.execute("DELETE FROM workouts")
+        # Apagamos usando o ORM. Funciona em qualquer banco de dados!
+        db.query(DBSet).delete()
+        db.query(DBExercise).delete()
+        db.query(DBWorkout).delete()
         
-        conn.commit()
+        db.commit()
         print("🗑️ Todo o histórico do banco de dados foi limpo com sucesso!")
     except Exception as e:
+        db.rollback()
         print(f"Erro ao limpar o banco: {e}")
     finally:
-        conn.close()
+        db.close()
 
 def popular_historico():
-    conn = sqlite3.connect("treinos.db")
-    cursor = conn.cursor()
+    db = SessionLocal()
 
-    # Histórico simulando evolução de cargas em 3 datas diferentes no passado
+    # Histórico mock utilizando objetos datetime com timezone UTC
     treinos_mock = [
         {
-            "data": "2026-09-20 10:00:00", 
+            "data": datetime.fromisoformat("2026-09-20T10:00:00+00:00"), 
             "exercicios": [
                 {"nome": "Agachamento Livre", "series": [(60, 10), (60, 10), (65, 8)]},
                 {"nome": "Supino Reto", "series": [(50, 10), (50, 8)]}
             ]
         },
         {
-            "data": "2026-09-27 10:00:00", 
+            "data": datetime.fromisoformat("2026-09-27T10:00:00+00:00"), 
             "exercicios": [
                 {"nome": "Agachamento Livre", "series": [(65, 10), (70, 8), (70, 8)]},
                 {"nome": "Supino Reto", "series": [(55, 10), (60, 6)]}
             ]
         },
         {
-            "data": "2026-10-04 10:00:00", 
+            "data": datetime.fromisoformat("2026-10-04T10:00:00+00:00"), 
             "exercicios": [
                 {"nome": "Agachamento Livre", "series": [(70, 10), (75, 8), (80, 6)]},
                 {"nome": "Supino Reto", "series": [(60, 10), (65, 6), (65, 5)]},
@@ -51,36 +49,33 @@ def popular_historico():
 
     try:
         for treino in treinos_mock:
-            # 1. Insere o treino já finalizado (is_active = 0)
-            cursor.execute(
-                "INSERT INTO workouts (date_created, date_finished, is_active) VALUES (?, ?, 0)",
-                (treino["data"], treino["data"])
+            # 1. Instancia o Treino
+            novo_treino = DBWorkout(
+                date_created=treino["data"], 
+                date_finished=treino["data"], 
+                is_active=False
             )
-            workout_id = cursor.lastrowid
+            db.add(novo_treino)
 
-            # 2. Insere os exercícios e suas respectivas séries
+            # 2. Instancia Exercícios e Séries vinculados ao treino
             for ex in treino["exercicios"]:
-                cursor.execute(
-                    "INSERT INTO exercises (name, workout_id) VALUES (?, ?)",
-                    (ex["nome"], workout_id)
-                )
-                exercise_id = cursor.lastrowid
+                novo_ex = DBExercise(name=ex["nome"], workout=novo_treino)
+                db.add(novo_ex)
 
                 for peso, reps in ex["series"]:
-                    cursor.execute(
-                        "INSERT INTO sets (weight, reps, exercise_id) VALUES (?, ?, ?)",
-                        (peso, reps, exercise_id)
-                    )
-
-        conn.commit()
+                    nova_serie = DBSet(weight=float(peso), reps=int(reps), exercise=novo_ex)
+                    db.add(nova_serie)
+        
+        db.commit()
         print("✅ Histórico mock inserido com sucesso!")
+        
     except Exception as e:
+        db.rollback()
         print(f"Erro ao popular o banco: {e}")
     finally:
-        conn.close()
+        db.close()
 
 if __name__ == "__main__":
-    # Pega o comando passado no terminal (ex: "limpar" ou "popular")
     if len(sys.argv) > 1:
         comando = sys.argv[1].lower()
         
@@ -92,5 +87,5 @@ if __name__ == "__main__":
             print("❌ Comando não reconhecido. Use 'popular' ou 'limpar'.")
     else:
         print("⚠️  Por favor, informe o que deseja fazer.")
-        print("Uso correto: python popular_banco.py popular")
-        print("             python popular_banco.py limpar")
+        print("Uso correto: python manipular_banco.py popular")
+        print("             python manipular_banco.py limpar")

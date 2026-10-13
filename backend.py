@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import os
 from dotenv import load_dotenv
 
@@ -11,16 +12,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Database Setup ---
-# O segundo parâmetro é um fallback (valor padrão) caso a variável não seja encontrada no .env
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./treinos.db")
 
-# Para SQLite, o connect_args={"check_same_thread": False} é necessário.
-# Se no futuro você alterar o DATABASE_URL para um PostgreSQL, esse argumento extra não é suportado pelo driver do Postgres.
-# Podemos tratar isso de forma simples:
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 else:
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -28,7 +26,7 @@ Base = declarative_base()
 class DBWorkout(Base):
     __tablename__ = "workouts"
     id = Column(Integer, primary_key=True, index=True)
-    date_created = Column(DateTime, default=datetime.utcnow)
+    date_created = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     date_finished = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     exercises = relationship("DBExercise", back_populates="workout", cascade="all, delete-orphan")
@@ -58,7 +56,7 @@ class SetCreate(BaseModel):
 
 class SetResponse(SetCreate):
     id: int
-    class Config: from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ExerciseCreate(BaseModel):
     name: str
@@ -66,7 +64,7 @@ class ExerciseCreate(BaseModel):
 class ExerciseResponse(ExerciseCreate):
     id: int
     sets: List[SetResponse] = []
-    class Config: from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class WorkoutResponse(BaseModel):
     id: int
@@ -74,10 +72,19 @@ class WorkoutResponse(BaseModel):
     date_finished: Optional[datetime]
     is_active: bool
     exercises: List[ExerciseResponse] = []
-    class Config: from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- FastAPI App ---
-app = FastAPI(title="Treino API MVP")
+app = FastAPI(title="Treino API MVP", description="API para controle e acompanhamento de treinos.")
+
+# Configuração de CORS (Permite que outros frontends consumam esta API futuramente)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def get_db():
     db = SessionLocal()
@@ -86,7 +93,8 @@ def get_db():
     finally:
         db.close()
 
-@app.post("/workouts/start", response_model=WorkoutResponse)
+# --- Rotas de Workouts ---
+@app.post("/workouts/start", response_model=WorkoutResponse, tags=["Workouts"])
 def start_workout(db: Session = Depends(get_db)):
     active = db.query(DBWorkout).filter(DBWorkout.is_active == True).first()
     if active:
@@ -97,22 +105,26 @@ def start_workout(db: Session = Depends(get_db)):
     db.refresh(new_workout)
     return new_workout
 
-@app.get("/workouts/active", response_model=Optional[WorkoutResponse])
+@app.get("/workouts/active", response_model=Optional[WorkoutResponse], tags=["Workouts"])
 def get_active_workout(db: Session = Depends(get_db)):
     return db.query(DBWorkout).filter(DBWorkout.is_active == True).first()
 
-@app.post("/workouts/{workout_id}/finish")
+@app.post("/workouts/{workout_id}/finish", tags=["Workouts"])
 def finish_workout(workout_id: int, db: Session = Depends(get_db)):
     workout = db.query(DBWorkout).filter(DBWorkout.id == workout_id).first()
     if not workout or not workout.is_active:
         raise HTTPException(status_code=404, detail="Treino ativo não encontrado.")
     
     workout.is_active = False
-    workout.date_finished = datetime.utcnow()
+    workout.date_finished = datetime.now(timezone.utc)
     db.commit()
     return {"message": "Treino finalizado com sucesso."}
 
-@app.post("/workouts/{workout_id}/exercises", response_model=ExerciseResponse)
+@app.get("/workouts/history", response_model=List[WorkoutResponse], tags=["Workouts"])
+def get_history(db: Session = Depends(get_db)):
+    return db.query(DBWorkout).filter(DBWorkout.is_active == False).order_by(DBWorkout.date_finished.desc()).all()
+
+@app.post("/workouts/{workout_id}/exercises", response_model=ExerciseResponse, tags=["Workouts"])
 def add_exercise(workout_id: int, exercise: ExerciseCreate, db: Session = Depends(get_db)):
     workout = db.query(DBWorkout).filter(DBWorkout.id == workout_id, DBWorkout.is_active == True).first()
     if not workout:
@@ -124,7 +136,8 @@ def add_exercise(workout_id: int, exercise: ExerciseCreate, db: Session = Depend
     db.refresh(db_exercise)
     return db_exercise
 
-@app.post("/exercises/{exercise_id}/sets", response_model=SetResponse)
+# --- Rotas de Exercises e Sets ---
+@app.post("/exercises/{exercise_id}/sets", response_model=SetResponse, tags=["Exercises & Sets"])
 def add_set(exercise_id: int, set_data: SetCreate, db: Session = Depends(get_db)):
     exercise = db.query(DBExercise).filter(DBExercise.id == exercise_id).first()
     if not exercise or not exercise.workout.is_active:
@@ -136,20 +149,13 @@ def add_set(exercise_id: int, set_data: SetCreate, db: Session = Depends(get_db)
     db.refresh(db_set)
     return db_set
 
-@app.get("/workouts/history", response_model=List[WorkoutResponse])
-def get_history(db: Session = Depends(get_db)):
-    return db.query(DBWorkout).filter(DBWorkout.is_active == False).order_by(DBWorkout.date_finished.desc()).all()
-
-@app.get("/exercises/names", response_model=List[str])
+@app.get("/exercises/names", response_model=List[str], tags=["Exercises & Sets"])
 def get_exercise_names(db: Session = Depends(get_db)):
-    # Busca nomes únicos de exercícios, ordenados alfabeticamente
     exercises = db.query(DBExercise.name).distinct().order_by(DBExercise.name).all()
-    # Retorna apenas a lista de strings
     return [ex[0] for ex in exercises if ex[0]]
 
-@app.get("/exercises/last-params")
+@app.get("/exercises/last-params", tags=["Exercises & Sets"])
 def get_last_params(name: str, db: Session = Depends(get_db)):
-    # Busca a última série registrada globalmente para este nome de exercício
     last_set = (
         db.query(DBSet)
         .join(DBExercise)
@@ -161,9 +167,9 @@ def get_last_params(name: str, db: Session = Depends(get_db)):
     
     if last_set:
         return {"weight": float(last_set.weight), "reps": int(last_set.reps)}
-    return {"weight": 0.0, "reps": 1} # Padrão caso seja um exercício totalmente novo
+    return {"weight": 0.0, "reps": 1}
 
-@app.delete("/sets/{set_id}")
+@app.delete("/sets/{set_id}", tags=["Exercises & Sets"])
 def delete_set(set_id: int, db: Session = Depends(get_db)):
     db_set = db.query(DBSet).filter(DBSet.id == set_id).first()
     if not db_set:
@@ -176,7 +182,7 @@ def delete_set(set_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Série deletada com sucesso."}
 
-@app.delete("/exercises/{exercise_id}")
+@app.delete("/exercises/{exercise_id}", tags=["Exercises & Sets"])
 def delete_exercise(exercise_id: int, db: Session = Depends(get_db)):
     exercise = db.query(DBExercise).filter(DBExercise.id == exercise_id).first()
     if not exercise:

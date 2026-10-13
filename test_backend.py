@@ -154,3 +154,53 @@ def test_obter_ultimos_parametros_de_exercicio_inexistente(client):
     
     assert data["weight"] == 0.0
     assert data["reps"] == 1
+
+def test_obter_historico_de_treinos(client):
+    # Cria e finaliza o primeiro treino
+    w1_id = client.post("/workouts/start").json()["id"]
+    client.post(f"/workouts/{w1_id}/finish")
+    
+    # Cria e finaliza o segundo treino
+    w2_id = client.post("/workouts/start").json()["id"]
+    client.post(f"/workouts/{w2_id}/finish")
+    
+    response = client.get("/workouts/history")
+    assert response.status_code == 200
+    history = response.json()
+    
+    assert len(history) == 2
+    # Como a ordenação é decrescente, o w2 deve vir primeiro
+    assert history[0]["id"] == w2_id
+    assert history[1]["id"] == w1_id
+    assert history[0]["is_active"] is False
+
+def test_adicionar_serie_em_exercicio(client):
+    w_id = client.post("/workouts/start").json()["id"]
+    ex_id = client.post(f"/workouts/{w_id}/exercises", json={"name": "Desenvolvimento"}).json()["id"]
+    
+    response = client.post(f"/exercises/{ex_id}/sets", json={"weight": 20, "reps": 12})
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["weight"] == 20.0
+    assert data["reps"] == 12
+    assert "id" in data
+
+def test_impedir_novo_exercicio_em_treino_finalizado(client):
+    w_id = client.post("/workouts/start").json()["id"]
+    client.post(f"/workouts/{w_id}/finish")
+    
+    response = client.post(f"/workouts/{w_id}/exercises", json={"name": "Rosca Direta"})
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Treino não está ativo ou não existe."
+
+def test_impedir_nova_serie_em_treino_finalizado(client):
+    w_id = client.post("/workouts/start").json()["id"]
+    ex_id = client.post(f"/workouts/{w_id}/exercises", json={"name": "Tríceps Testa"}).json()["id"]
+    client.post(f"/workouts/{w_id}/finish")
+    
+    response = client.post(f"/exercises/{ex_id}/sets", json={"weight": 15, "reps": 10})
+    
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Exercício inválido ou treino já finalizado."

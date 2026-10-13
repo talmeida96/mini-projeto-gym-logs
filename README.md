@@ -97,17 +97,17 @@ A interface é dividida em três abas principais:
 
 ## 1. Treino Atual
 
-**Iniciar**: Clique em "Iniciar Novo Treino" para começar.
+- **Iniciar**: Clique em "Iniciar Novo Treino" para começar.
 
-**Adicionar Exercício**: Você pode selecionar um exercício já realizado no passado na lista disponível ou clicar em "➕" para criar um exercício pela primeira vez.
+- **Adicionar Exercício**: Você pode selecionar um exercício já realizado no passado na lista disponível ou clicar em "➕" para criar um exercício pela primeira vez.
 
-**Gravar Séries**: Para cada exercício, insira a Carga e as Repetições e clique em "Gravar Série".
+- **Gravar Séries**: Para cada exercício, insira a Carga e as Repetições e clique em "Gravar Série".
 
-**✨ Dica Mágica**: O sistema preenche automaticamente os campos com o peso e repetições que você usou na sua última série ou no seu último treino deste exercício!
+- **✨ Dica Mágica**: O sistema preenche automaticamente os campos com o peso e repetições que você usou na sua última série ou no seu último treino deste exercício!
 
-**Correções**: Errou algo? Você pode excluir séries individuais ou o exercício inteiro utilizando os botões de lixeira 🗑️.
+- **Correções**: Errou algo? Você pode excluir séries individuais ou o exercício inteiro utilizando os botões de lixeira 🗑️.
 
-**Finalizar**: Quando terminar, clique em "✅ Finalizar e Salvar Treino" para gravá-lo no seu histórico. Após isso, o treino não poderá mais ser editado.
+- **Finalizar**: Quando terminar, clique em "✅ Finalizar e Salvar Treino" para gravá-lo no seu histórico. Após isso, o treino não poderá mais ser editado.
 
 ## 2. Histórico
 
