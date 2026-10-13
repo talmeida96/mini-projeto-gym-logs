@@ -1,0 +1,67 @@
+---------------------------------------------------
+
+AMBIENTE E SEGURANÇA
+
+---------------------------------------------------
+
+Variáveis de ambiente reais (segredos)
+
+.env
+
+Diretórios de ambientes virtuais
+
+venv/
+.venv/
+env/
+ENV/
+
+---------------------------------------------------
+
+BANCO DE DADOS
+
+---------------------------------------------------
+
+Evita o envio do banco de dados local populado
+
+*.db
+*.sqlite
+*.sqlite3
+treinos.db
+
+---------------------------------------------------
+
+CACHE E ARQUIVOS TEMPORÁRIOS DO PYTHON
+
+---------------------------------------------------
+
+pycache/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+---------------------------------------------------
+
+TESTES (PYTEST)
+
+---------------------------------------------------
+
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+---------------------------------------------------
+
+IDE E SISTEMA OPERACIONAL
+
+---------------------------------------------------
+
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
